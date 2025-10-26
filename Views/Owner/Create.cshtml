@@ -1,0 +1,195 @@
+@{
+    ViewData["Title"] = "Tạo cơ sở";
+}
+
+<h3 class="mt-4">Tạo cơ sở lưu trú</h3>
+<div id="alertMessage" class="alert d-none" role="alert"></div>
+
+<form id="frm" class="mt-3">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Tên cơ sở *</label>
+            <input name="tenCoSo" class="form-control" required />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Thành phố *</label>
+            <input name="thanhPho" class="form-control" required />
+        </div>
+        <div class="col-md-12">
+            <label class="form-label">Mô tả</label>
+            <textarea name="moTa" rows="3" class="form-control"></textarea>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Số tài khoản</label>
+            <input name="soTaiKhoan" class="form-control" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Tên tài khoản</label>
+            <input name="tenTaiKhoan" class="form-control" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Tên ngân hàng</label>
+            <input name="tenNganHang" class="form-control" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Ảnh (tối đa 10MB)</label>
+            <input type="file" name="file" accept="image/*" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Chi tiết (số nhà, toà...)</label>
+            <input name="chiTiet" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Phường/Xã</label>
+            <input name="phuong" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Phố/Đường</label>
+            <input name="pho" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Kinh độ</label>
+            <input name="kinhDo" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Vĩ độ</label>
+            <input name="viDo" class="form-control" />
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <label class="form-label">Bản đồ (nhấp để đặt toạ độ)</label>
+        <div class="input-group input-group-sm mb-2" style="max-width: 520px;">
+            <input type="text" id="mapSearchCreate" class="form-control" placeholder="Tìm địa chỉ (ví dụ: 1 Cát Linh, Hà Nội)" />
+            <button class="btn btn-outline-secondary" type="button" id="btnMapSearchCreate">Tìm</button>
+        </div>
+        <div id="mapCreate" style="height: 380px; border-radius: 8px; border: 1px solid #e5e5e5;"></div>
+        <div class="form-text mt-2" id="addrPreviewCreate"></div>
+    </div>
+
+    <div class="mt-3 d-flex gap-2">
+        <button id="btnSave" type="submit" class="btn btn-primary">Tạo</button>
+        <a class="btn btn-secondary" href="/Owner/Index">Hủy</a>
+    </div>
+</form>
+
+@section Scripts {
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(async function(){
+    if (!WhaleBooking.auth.isOwner()) {
+        WhaleBooking.ui.showAlert('Bạn không có quyền đăng nhập', 'danger');
+        window.location.href = '/Auth/Login';
+        return;
+    }
+
+    const form = document.getElementById('frm');
+    const latInput = () => form.querySelector('[name="viDo"]');
+    const lonInput = () => form.querySelector('[name="kinhDo"]');
+    const toNum = v => { if (v === undefined || v === null) return null; const s = (''+v).replace(',', '.').trim(); const n = parseFloat(s); return isNaN(n) ? null : n; };
+
+    // Ensure Leaflet is available (fallback to cdnjs if UNPKG is blocked)
+    async function ensureLeaflet(){
+        if (window.L) return;
+        const hasCss = Array.from(document.styleSheets).some(s => (s.href||'').includes('leaflet'));
+        if (!hasCss){
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+            document.head.appendChild(link);
+        }
+        await new Promise((resolve)=>{
+            const sc = document.createElement('script');
+            sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+            sc.onload = resolve; sc.onerror = resolve;
+            document.body.appendChild(sc);
+        });
+    }
+
+    // Leaflet map
+    await ensureLeaflet();
+    const defaultCenter = [21.0278, 105.8342]; // Hanoi
+    if (!window.L){ console.warn('Leaflet not loaded'); return; }
+    const map = L.map('mapCreate').setView(defaultCenter, 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+    const marker = L.marker(defaultCenter, { draggable: true }).addTo(map);
+    setTimeout(() => { try { map.invalidateSize(true); } catch {} }, 0);
+    function syncFromMarker(){ const p = marker.getLatLng(); latInput().value = p.lat.toFixed(6); lonInput().value = p.lng.toFixed(6); reverseGeocode(p.lat, p.lng); }
+    function syncFromInputs(){ const lat = toNum(latInput().value); const lon = toNum(lonInput().value); if (lat == null || lon == null) return; const ll = L.latLng(lat, lon); marker.setLatLng(ll); map.setView(ll); reverseGeocode(lat, lon); }
+    marker.on('dragend', syncFromMarker);
+    map.on('click', e => { marker.setLatLng(e.latlng); syncFromMarker(); });
+    latInput().addEventListener('change', syncFromInputs);
+    lonInput().addEventListener('change', syncFromInputs);
+    syncFromMarker();
+
+    // Forward geocoding with Nominatim
+    async function forwardGeocode(q){
+        if (!q) return [];
+        try {
+            const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&limit=5&countrycodes=vn`;
+            const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!r.ok) return [];
+            return await r.json();
+        } catch { return []; }
+    }
+
+    async function reverseGeocode(lat, lon){
+        const preview = document.getElementById('addrPreviewCreate');
+        try {
+            const res = await WhaleBooking.api.call(`/cosoluutru/reverse-geocode?lat=${lat}&lng=${lon}`, { method: 'GET' });
+            const d = (res && res.data) || res;
+            if (!d) return;
+            const pho = d.pho ?? d.Pho ?? '';
+            const phuong = d.phuong ?? d.Phuong ?? '';
+            const nuoc = d.nuoc ?? d.Nuoc ?? '';
+            const thanhPho = d.thanhPho ?? d.tinhThanh ?? d.ThanhPho ?? d.TinhThanh ?? '';
+            const phEl = form.querySelector('[name="phuong"]'); if (phEl) phEl.value = phuong;
+            const phoEl = form.querySelector('[name="pho"]'); if (phoEl) phoEl.value = pho;
+            let nuocEl = form.querySelector('[name="nuoc"]');
+            if (!nuocEl) { nuocEl = document.createElement('input'); nuocEl.type='hidden'; nuocEl.name='nuoc'; form.appendChild(nuocEl); }
+            nuocEl.value = nuoc;
+            const tpEl = form.querySelector('[name="thanhPho"]'); if (tpEl) tpEl.value = thanhPho;
+            // Preview without phường/xã: Street, City/Province, Country
+            const disp = [pho || '', thanhPho || '', nuoc || ''].filter(Boolean).join(', ');
+            if (preview) preview.textContent = disp.trim();
+        } catch(err){ console.warn('reverse-geocode failed', err); }
+    }
+
+    form.addEventListener('submit', async function(e){
+        e.preventDefault();
+        // Normalize decimals
+        latInput().value = (toNum(latInput().value) ?? '').toString();
+        lonInput().value = (toNum(lonInput().value) ?? '').toString();
+    const fd = new FormData(form);
+    // Ensure new schema fields included
+    ['chiTiet','pho','phuong','nuoc'].forEach(n=>{ const el=form.querySelector(`[name="${n}"]`); if(el) fd.set(n, el.value || ''); });
+        const res = await WhaleBooking.api.upload('/cosoluutru', fd, { method: 'POST' });
+        if (res && res.success) {
+            WhaleBooking.ui.showAlert('Tạo thành công, vui lòng chờ admin duyệt', 'success');
+            setTimeout(() => window.location.href = '/Owner/Index', 700);
+        } else {
+            WhaleBooking.ui.showAlert((res && res.message) || 'Lỗi tạo cơ sở', 'danger');
+        }
+    });
+
+    // Wire up search
+    const searchInput = document.getElementById('mapSearchCreate');
+    const searchBtn = document.getElementById('btnMapSearchCreate');
+    async function doSearch(){
+        const q = (searchInput?.value || '').trim();
+        if (!q) return;
+        const results = await forwardGeocode(q);
+        if (results.length === 0) { WhaleBooking.ui.showAlert('Không tìm thấy địa chỉ phù hợp', 'warning'); return; }
+        const r = results[0];
+        const lat = toNum(r.lat); const lon = toNum(r.lon);
+        if (lat == null || lon == null) return;
+        marker.setLatLng([lat, lon]);
+        map.setView([lat, lon], 15);
+        syncFromMarker();
+    }
+    if (searchBtn) searchBtn.addEventListener('click', doSearch);
+    if (searchInput) searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } });
+})();
+</script>
+}

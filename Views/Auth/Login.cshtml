@@ -1,0 +1,110 @@
+@{
+    ViewData["Title"] = "Đăng nhập";
+}
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div id="alertMessage" class="alert d-none" role="alert"></div>
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h3 class="card-title mb-4">Đăng nhập</h3>
+
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="email" placeholder="you@example.com">
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Mật khẩu</label>
+                    <input type="password" class="form-control" id="password" placeholder="••••••">
+                </div>
+                <div class="d-grid gap-2">
+                    <button id="btnLogin" class="btn btn-primary">Đăng nhập (Email/Password)</button>
+                    <button id="btnGoogle" class="btn btn-outline-danger">Đăng nhập với Google</button>
+                </div>
+
+                <hr class="my-4" />
+                <p class="text-muted small mb-0">Sau khi đăng nhập bằng Firebase, hệ thống sẽ đổi idToken thành JWT backend.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- Firebase SDK (compat for simplicity) -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+
+    <script>
+        (function() {
+            // Init Firebase
+            if (!firebase.apps.length) {
+                firebase.initializeApp(window.WhaleBooking.firebaseConfig);
+            }
+
+            async function exchangeToken(idToken) {
+                try {
+                    const res = await fetch(`${WhaleBooking.getApiUrl()}/auth/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ idToken })
+                    });
+                    const data = await res.json();
+                    if (!res.ok || !data.success) {
+                        throw new Error(data.message || 'Đăng nhập thất bại');
+                    }
+
+                    // Allow ONLY ChuCoSo to enter owner portal
+                    const roles = data.data.roles || [];
+                    const roleFromUser = data.data.user && data.data.user.vaiTro;
+                    const isOwner = roles.includes('ChuCoSo') || roleFromUser === 'ChuCoSo';
+
+                    if (!isOwner) {
+                        WhaleBooking.ui.showAlert('Tài khoản của bạn không có quyền đăng nhập vào khu vực Chủ cơ sở', 'danger');
+                        try { await firebase.auth().signOut(); } catch {}
+                        WhaleBooking.storage.clear();
+                        return; // stop here, do not navigate
+                    }
+
+                    WhaleBooking.storage.setToken(data.data.token || data.data.accessToken);
+                    WhaleBooking.storage.setUserInfo(data.data.user);
+                    WhaleBooking.storage.setUserRoles(roles);
+
+                    WhaleBooking.ui.showAlert('Đăng nhập thành công', 'success');
+                    setTimeout(() => window.location.href = '/Owner/Index', 500);
+                } catch (err) {
+                    console.error(err);
+                    WhaleBooking.ui.showAlert(err.message || 'Đăng nhập thất bại', 'danger');
+                }
+            }
+
+            document.getElementById('btnLogin').addEventListener('click', async function() {
+                const email = document.getElementById('email').value.trim();
+                const password = document.getElementById('password').value.trim();
+                if (!email || !password) {
+                    WhaleBooking.ui.showAlert('Vui lòng nhập email và mật khẩu', 'warning');
+                    return;
+                }
+                try {
+                    const cred = await firebase.auth().signInWithEmailAndPassword(email, password);
+                    const idToken = await cred.user.getIdToken();
+                    await exchangeToken(idToken);
+                } catch (err) {
+                    console.error(err);
+                    WhaleBooking.ui.showAlert(err.message, 'danger');
+                }
+            });
+
+            document.getElementById('btnGoogle').addEventListener('click', async function() {
+                try {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    const cred = await firebase.auth().signInWithPopup(provider);
+                    const idToken = await cred.user.getIdToken();
+                    await exchangeToken(idToken);
+                } catch (err) {
+                    console.error(err);
+                    WhaleBooking.ui.showAlert(err.message, 'danger');
+                }
+            });
+        })();
+    </script>
+}

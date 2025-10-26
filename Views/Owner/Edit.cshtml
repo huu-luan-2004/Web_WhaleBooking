@@ -1,0 +1,297 @@
+@{
+    ViewData["Title"] = "Sửa cơ sở";
+    var id = ViewData["Id"];
+}
+
+<h3 class="mt-4">Sửa cơ sở #@id</h3>
+<div id="alertMessage" class="alert d-none" role="alert"></div>
+
+<form id="frm" class="mt-3">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Tên cơ sở</label>
+            <input name="tenCoSo" class="form-control" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Thành phố</label>
+            <input name="thanhPho" class="form-control" />
+        </div>
+        <div class="col-md-12">
+            <label class="form-label">Mô tả</label>
+            <textarea name="moTa" rows="3" class="form-control"></textarea>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Số tài khoản</label>
+            <input name="soTaiKhoan" class="form-control" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Ảnh (tối đa 10MB)</label>
+            <input type="file" name="file" accept="image/*" class="form-control" />
+            <img id="imgPreviewEdit" class="img-thumbnail mt-2" style="max-height: 160px; display:none;" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Chi tiết (số nhà, toà...)</label>
+            <input name="chiTiet" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Phường/Xã</label>
+            <input name="phuong" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Phố/Đường</label>
+            <input name="pho" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Kinh độ</label>
+            <input name="kinhDo" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Vĩ độ</label>
+            <input name="viDo" class="form-control" />
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <label class="form-label">Bản đồ (nhấp để đặt toạ độ)</label>
+        <div class="input-group input-group-sm mb-2" style="max-width: 520px;">
+            <input type="text" id="mapSearchEdit" class="form-control" placeholder="Tìm địa chỉ (ví dụ: 1 Cát Linh, Hà Nội)" />
+            <button class="btn btn-outline-secondary" type="button" id="btnMapSearchEdit">Tìm</button>
+        </div>
+        <div id="mapEdit" style="height: 380px; border-radius: 8px; border: 1px solid #e5e5e5;"></div>
+        <div class="form-text mt-2" id="addrPreview"></div>
+    </div>
+
+    <div class="mt-3 d-flex gap-2">
+        <button id="btnSave" type="submit" class="btn btn-primary">Lưu</button>
+        <a class="btn btn-secondary" href="/Owner/Index">Hủy</a>
+    </div>
+    <input type="hidden" name="idDiaChi" />
+</form>
+
+@section Scripts {
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(async function(){
+    if (!WhaleBooking.auth.isOwner()) {
+        WhaleBooking.ui.showAlert('Bạn không có quyền đăng nhập', 'danger');
+        window.location.href = '/Auth/Login';
+        return;
+    }
+
+    const id = '@id';
+    const form = document.getElementById('frm');
+    const latInput = () => form.querySelector('[name="viDo"]');
+    const lonInput = () => form.querySelector('[name="kinhDo"]');
+    const idDiaChiInput = () => form.querySelector('[name="idDiaChi"]');
+        const getEl = (n) => form.querySelector(`[name="${n}"]`);
+        const setVal = (n, v) => { const el = getEl(n); if (el) el.value = v ?? ''; };
+    const toNum = v => {
+        if (v === undefined || v === null) return null;
+        const s = (''+v).replace(',', '.').trim();
+        const n = parseFloat(s);
+        return isNaN(n) ? null : n;
+    };
+
+    // Ensure Leaflet is available (fallback to cdnjs if UNPKG is blocked)
+    async function ensureLeaflet(){
+        if (window.L) return;
+        // add fallback CSS once
+        const hasCss = Array.from(document.styleSheets).some(s => (s.href||'').includes('leaflet'));
+        if (!hasCss){
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+            document.head.appendChild(link);
+        }
+        // load JS fallback
+        await new Promise((resolve)=>{
+            const sc = document.createElement('script');
+            sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+            sc.onload = resolve; sc.onerror = resolve; // resolve anyway; we'll check window.L below
+            document.body.appendChild(sc);
+        });
+    }
+
+    // Leaflet map
+    let map, marker;
+    function ensureMap(center){
+        if (map) return;
+        if (!window.L){ console.warn('Leaflet not loaded'); return; }
+        map = L.map('mapEdit').setView(center, 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+        marker = L.marker(center, { draggable: true }).addTo(map);
+        marker.on('dragend', syncFromMarker);
+        map.on('click', e => moveMarker(e.latlng));
+        setTimeout(() => { try { map.invalidateSize(true); } catch {} }, 0);
+    }
+    function moveMarker(latlng, doGeocode = true){
+        if (!marker) return;
+        marker.setLatLng(latlng);
+        latInput().value = (latlng.lat).toFixed(6);
+        lonInput().value = (latlng.lng).toFixed(6);
+        if (doGeocode) reverseGeocode(latlng.lat, latlng.lng);
+    }
+    function syncFromMarker(){
+        const p = marker.getLatLng();
+        latInput().value = p.lat.toFixed(6);
+        lonInput().value = p.lng.toFixed(6);
+        reverseGeocode(p.lat, p.lng);
+    }
+    function syncFromInputs(){
+        const lat = toNum(latInput().value);
+        const lon = toNum(lonInput().value);
+        if (lat == null || lon == null || !marker) return;
+        const ll = L.latLng(lat, lon);
+        marker.setLatLng(ll);
+        map.setView(ll);
+        reverseGeocode(lat, lon);
+    }
+
+    // Forward geocoding with Nominatim
+    async function forwardGeocode(q){
+        if (!q) return [];
+        try {
+            const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&limit=5&countrycodes=vn`;
+            const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!r.ok) return [];
+            return await r.json();
+        } catch { return []; }
+    }
+
+    async function reverseGeocode(lat, lon){
+        const preview = document.getElementById('addrPreview');
+        try {
+            const res = await WhaleBooking.api.call(`/cosoluutru/reverse-geocode?lat=${lat}&lng=${lon}`, { method: 'GET' });
+            const d = (res && res.data) || res;
+            if (!d) return;
+                // New schema: chiTiet (leave as user input), pho, phuong, nuoc; also support PascalCase
+                const pho = d.pho ?? d.Pho ?? '';
+                const phuong = d.phuong ?? d.Phuong ?? '';
+                const nuoc = d.nuoc ?? d.Nuoc ?? '';
+                const thanhPho = d.thanhPho ?? d.tinhThanh ?? d.ThanhPho ?? d.TinhThanh ?? '';
+                // Preview without phường/xã as requested: Street, City/Province, Country
+                const disp = [pho || '', thanhPho || '', nuoc || ''].filter(Boolean).join(', ');
+                const phoEl = getEl('pho'); if (phoEl) phoEl.value = pho;
+                const phuongEl = getEl('phuong'); if (phuongEl) phuongEl.value = phuong;
+                const nuocEl = getEl('nuoc'); if (nuocEl) nuocEl.value = nuoc;
+                const tpEl = getEl('thanhPho'); if (tpEl) tpEl.value = thanhPho;
+            if (preview) preview.textContent = disp.trim();
+        } catch(err){ console.warn('reverse-geocode failed', err); }
+    }
+
+    async function load(){
+        await ensureLeaflet();
+        const res = await WhaleBooking.api.call(`/cosoluutru/${id}`, { method: 'GET' });
+        const it = (res && res.data) || res;
+        if (!it) return;
+
+    // Map both camelCase and PascalCase from API to our input names
+    const get = (lower, upper) => it[lower] ?? it[upper] ?? '';
+    setVal('tenCoSo', get('tenCoSo','TenCoSo'));
+    setVal('thanhPho', get('thanhPho','ThanhPho'));
+    setVal('moTa', get('moTa','MoTa'));
+    setVal('soTaiKhoan', get('soTaiKhoan','SoTaiKhoan'));
+    // Optional fields on Edit (only set if exist)
+    setVal('tenTaiKhoan', get('tenTaiKhoan','TenTaiKhoan'));
+    setVal('tenNganHang', get('tenNganHang','TenNganHang'));
+    setVal('soNha', get('soNha','SoNha'));
+    setVal('phuong', get('phuong','Phuong'));
+    setVal('kinhDo', get('kinhDo','KinhDo'));
+    setVal('viDo', get('viDo','ViDo'));
+        // Image preview
+        const imgUrl = it.imageUrl || it.ImageUrl || '';
+        const imgPreview = document.getElementById('imgPreviewEdit');
+        if (imgPreview) {
+            const abs = WhaleBooking.api.fullImageUrl(imgUrl);
+            imgPreview.src = abs;
+            imgPreview.style.display = imgUrl ? 'block' : 'none';
+        }
+        const diaChi = it.diaChi || it.DiaChi || {};
+        idDiaChiInput().value = (diaChi.id || diaChi.Id || '').toString();
+            // Prefill new schema fields from either new or old properties
+            getEl('chiTiet').value = (diaChi.chiTiet ?? diaChi.ChiTiet ?? diaChi.soNha ?? diaChi.SoNha ?? '');
+            getEl('pho').value = (diaChi.pho ?? diaChi.Pho ?? '');
+            getEl('phuong').value = (diaChi.phuong ?? diaChi.Phuong ?? '');
+            if (!getEl('nuoc')) {
+                // add a hidden nuoc if not present in DOM (fallback)
+                const h = document.createElement('input'); h.type='hidden'; h.name='nuoc'; form.appendChild(h);
+            }
+
+        // Initialize map with existing coords or default Hanoi
+        const lat = toNum(get('viDo','ViDo')) ?? 21.0278;
+        const lon = toNum(get('kinhDo','KinhDo')) ?? 105.8342;
+        ensureMap([lat, lon]);
+        // Set initial marker without reverse geocode to keep stored address values
+        if (marker) {
+            marker.setLatLng([lat, lon]);
+            latInput().value = lat.toFixed(6);
+            lonInput().value = lon.toFixed(6);
+            try { map.setView([lat, lon]); } catch {}
+        }
+
+        // Keep marker and inputs in sync
+        latInput().addEventListener('change', syncFromInputs);
+        lonInput().addEventListener('change', syncFromInputs);
+
+        // Wire up search
+        const searchInput = document.getElementById('mapSearchEdit');
+        const searchBtn = document.getElementById('btnMapSearchEdit');
+        async function doSearch(){
+            const q = (searchInput?.value || '').trim();
+            if (!q) return;
+            const results = await forwardGeocode(q);
+            if (results.length === 0) { WhaleBooking.ui.showAlert('Không tìm thấy địa chỉ phù hợp', 'warning'); return; }
+            const r = results[0];
+            const lat = toNum(r.lat); const lon = toNum(r.lon);
+            if (lat == null || lon == null) return;
+            ensureMap([lat, lon]);
+            moveMarker({ lat, lng: lon });
+            try { map.setView([lat, lon], 15); } catch {}
+        }
+        if (searchBtn) searchBtn.addEventListener('click', doSearch);
+        if (searchInput) searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } });
+    }
+
+    // Preview selected file
+    const fileInput = form.querySelector('[name="file"]');
+    if (fileInput) {
+        fileInput.addEventListener('change', function(){
+            const img = document.getElementById('imgPreviewEdit');
+            if (!img) return;
+            if (this.files && this.files[0]) {
+                img.src = URL.createObjectURL(this.files[0]);
+                img.style.display = 'block';
+            }
+        });
+    }
+
+    form.addEventListener('submit', async function(e){
+        e.preventDefault();
+        // Normalize decimals
+        latInput().value = (toNum(latInput().value) ?? '').toString();
+        lonInput().value = (toNum(lonInput().value) ?? '').toString();
+    const fd = new FormData(form);
+        // If no file selected, remove the key to avoid sending empty file part
+        const fi = form.querySelector('[name="file"]');
+        if (fi && (!fi.files || fi.files.length === 0)) {
+            fd.delete('file');
+        }
+        // Ensure idDiaChi is included if present
+        const iddc = idDiaChiInput().value;
+        if (iddc) fd.set('idDiaChi', iddc);
+        // Include new schema fields explicitly to be safe
+        ['chiTiet','pho','phuong','nuoc'].forEach(n=>{ const el=getEl(n); if(el) fd.set(n, el.value || ''); });
+        const res = await WhaleBooking.api.upload(`/cosoluutru/${id}`, fd, { method: 'PUT' });
+        if (res && res.success) {
+            WhaleBooking.ui.showAlert('Cập nhật thành công', 'success');
+            setTimeout(() => window.location.href = '/Owner/Index', 700);
+        } else {
+            WhaleBooking.ui.showAlert((res && res.message) || 'Cập nhật thất bại', 'danger');
+        }
+    });
+
+    load();
+})();
+</script>
+}

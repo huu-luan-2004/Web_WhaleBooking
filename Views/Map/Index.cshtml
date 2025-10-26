@@ -1,0 +1,118 @@
+@{
+    ViewData["Title"] = "Bản đồ cơ sở lưu trú";
+}
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<style>
+  #map { height: 70vh; border-radius: 8px; }
+  .leaflet-popup-content img { max-width: 220px; display:block; margin-bottom:6px; border-radius:6px; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mt-4 mb-3">
+  <h3>Bản đồ cơ sở lưu trú</h3>
+  <small class="text-muted">Mặc định tâm: Hà Nội; tự co khung khi tải xong</small>
+</div>
+<div id="alertMessage" class="alert d-none" role="alert"></div>
+<div id="map"></div>
+
+@section Scripts {
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(async function(){
+  // number parser that rejects empty strings
+  const toNum = (v) => {
+    if (v === undefined || v === null) return null;
+    const s = (''+v).replace(',', '.').trim();
+    if (s === '') return null;
+    const n = parseFloat(s);
+    return isNaN(n) ? null : n;
+  };
+  async function ensureLeaflet(){
+    if (window.L) return;
+    const hasCss = Array.from(document.styleSheets).some(s => (s.href||'').includes('leaflet'));
+    if (!hasCss){
+      const link = document.createElement('link'); link.rel = 'stylesheet'; link.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'; document.head.appendChild(link);
+    }
+    await new Promise((resolve)=>{ const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'; sc.onload=resolve; sc.onerror=resolve; document.body.appendChild(sc); });
+  }
+
+  await ensureLeaflet();
+  if (!window.L){ console.warn('Leaflet not loaded'); return; }
+  // Default center: Hanoi
+  const defaultCenter = [21.0278, 105.8342];
+  const map = L.map('map').setView(defaultCenter, 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+  setTimeout(() => { try { map.invalidateSize(true); } catch {} }, 0);
+
+  // Helpers
+  const apiBase = WhaleBooking.getApiUrl(); // e.g. http://localhost:5000/api
+  const apiOrigin = apiBase.replace(/\/api$/, ''); // http://localhost:5000
+  const fullImg = (url) => {
+    if (!url) return 'https://via.placeholder.com/600x400?text=No+Image';
+    if (url.startsWith('http')) return url;
+    // ensure leading slash
+    return apiOrigin + (url.startsWith('/') ? url : ('/' + url));
+  };
+
+  function buildAddress(d){
+    if (!d) return '';
+    const soNha = d.soNha ?? d.SoNha; const phuong = d.phuong ?? d.Phuong; const quan = d.quan ?? d.Quan; const tp = d.thanhPho ?? d.ThanhPho;
+    return [soNha, phuong, quan, tp].filter(Boolean).join(', ');
+  }
+
+  async function load(){
+    try {
+      const res = await WhaleBooking.api.call('/cosoluutru?page=1&pageSize=1000', { method: 'GET' });
+      const data = (res && res.data) || res || [];
+      const markers = [];
+      let skipped = 0;
+      const isLikelyVN = (lat, lon) => lat >= 8 && lat <= 24.5 && lon >= 102 && lon <= 110.5; // coarse VN bbox
+      data.forEach(it => {
+        const diaChi = it.diaChi || it.DiaChi || {};
+        const lat = toNum(diaChi.viDo ?? diaChi.ViDo ?? it.viDo ?? it.ViDo);
+        const lon = toNum(diaChi.kinhDo ?? diaChi.KinhDo ?? it.kinhDo ?? it.KinhDo);
+        if (lat == null || lon == null) { skipped++; return; } // skip if no numeric coords
+        if ((Math.abs(lat) < 0.000001 && Math.abs(lon) < 0.000001) || !isLikelyVN(lat, lon)) { skipped++; return; }
+        const name = it.tenCoSo || it.TenCoSo || 'Cơ sở';
+        const img = fullImg(it.imageUrl || it.ImageUrl);
+        const addr = buildAddress(diaChi);
+        const id = it.id || it.Id;
+        const popup = `
+          <div>
+            <img src="${img}" alt="${name}">
+            <strong>${name}</strong><br/>
+            <small>${addr || ''}</small><br/>
+            <a href="/Owner/Edit/${id}" target="_self">Xem chi tiết</a>
+          </div>`;
+        const m = L.marker([lat, lon]).addTo(map).bindPopup(popup);
+        markers.push(m);
+      });
+
+      if (markers.length > 0) {
+        if (markers.length === 1) {
+          map.setView(markers[0].getLatLng(), 14);
+        } else {
+          const group = L.featureGroup(markers);
+          map.fitBounds(group.getBounds().pad(0.15));
+        }
+      } else {
+        map.setView(defaultCenter, 12);
+        WhaleBooking.ui.showAlert('Chưa có cơ sở có toạ độ để hiển thị', 'warning');
+      }
+
+      if (skipped > 0) {
+        WhaleBooking.ui.showAlert(`Bỏ qua ${skipped} cơ sở có toạ độ không hợp lệ`, 'info');
+      }
+    } catch (e) {
+      console.error(e);
+      WhaleBooking.ui.showAlert('Không tải được danh sách cơ sở', 'danger');
+    }
+  }
+
+  load();
+})();
+</script>
+}

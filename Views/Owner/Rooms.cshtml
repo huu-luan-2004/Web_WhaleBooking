@@ -1,0 +1,154 @@
+@{
+    ViewData["Title"] = "Quản lý phòng";
+    var accId = Context.Request.Query["accommodationId"].ToString();
+    if (string.IsNullOrWhiteSpace(accId)) accId = Context.Request.Query["cosoluutru_id"].ToString();
+}
+
+<div class="d-flex justify-content-between align-items-center mt-4 mb-3">
+    <h3>Phòng</h3>
+    <div>
+        <a class="btn btn-secondary" href="/Owner/Index">← Cơ sở</a>
+        <a id="btnCreateRoom" class="btn btn-primary" href="/Owner/CreateRoom?accommodationId=@accId">+ Thêm phòng</a>
+    </div>
+    
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-auto">
+        <input id="txtSearch" class="form-control" placeholder="Tìm phòng..." />
+    </div>
+    <div class="col-auto">
+        <select id="selAcc" class="form-select">
+            <option value="">Tất cả cơ sở</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <button id="btnSearch" class="btn btn-outline-secondary">Lọc</button>
+    </div>
+    <div class="col text-end">
+        <small class="text-muted">Mẹo: Chọn cơ sở để lọc nhanh danh sách phòng</small>
+    </div>
+    
+</div>
+
+<div id="alertMessage" class="alert d-none" role="alert"></div>
+<div id="list" class="row g-3"></div>
+
+@section Scripts {
+<script>
+(function(){
+    if (!WhaleBooking.auth.isOwner()) {
+        WhaleBooking.ui.showAlert('Bạn không có quyền đăng nhập', 'danger');
+        window.location.href = '/Auth/Login';
+        return;
+    }
+
+    const initialAccId = '@accId';
+    const listEl = document.getElementById('list');
+    const selAcc = document.getElementById('selAcc');
+    const txtSearch = document.getElementById('txtSearch');
+    const btnSearch = document.getElementById('btnSearch');
+    const btnCreate = document.getElementById('btnCreateRoom');
+
+    function buildListUrl(page=1){
+        const pageSize = 20;
+        const q = (txtSearch.value || '').trim();
+        const acc = selAcc.value || '';
+        const params = new URLSearchParams();
+        params.set('page', page);
+        params.set('pageSize', pageSize);
+        if (q) params.set('q', q);
+        if (acc) params.set('accommodationId', acc);
+        return `/rooms?${params.toString()}`;
+    }
+
+    function render(items){
+        listEl.innerHTML = '';
+        if (!items || items.length === 0) {
+            listEl.innerHTML = '<div class="text-muted">Chưa có phòng nào</div>';
+            return;
+        }
+        items.forEach(it => {
+            const col = document.createElement('div');
+            col.className = 'col-md-4';
+            let cover;
+            const imgs = it.images || it.Images || it.imageUrls || it.ImageUrls;
+            if (Array.isArray(imgs) && imgs.length > 0) cover = WhaleBooking.api.fullImageUrl(imgs[0]);
+            else cover = it.imageUrl || it.ImageUrl || 'https://via.placeholder.com/600x400?text=No+Image';
+            const gia = (it.gia ?? it.Gia) ?? '';
+            const giaKM = (it.giaKhuyenMai ?? it.GiaKhuyenMai);
+            col.innerHTML = `
+                <div class="card h-100">
+                    <img src="${cover}" class="card-img-top" style="object-fit:cover;height:180px;">
+                    <div class="card-body">
+                        <h5 class="card-title">${it.tenPhong || it.TenPhong || it.name || 'Phòng'}</h5>
+                        <p class="card-text small text-muted mb-1">Giá: ${gia}${giaKM ? ` (KM: ${giaKM})` : ''}</p>
+                        <p class="card-text small text-muted">Số người tối đa: ${it.soNguoiToiDa || it.SoNguoiToiDa || ''}</p>
+                        <div class="d-flex gap-2">
+                            <a class="btn btn-sm btn-outline-primary" href="/Owner/EditRoom?id=${it.id}">Sửa</a>
+                            <button class="btn btn-sm btn-outline-secondary" data-action="img" data-id="${it.id}">Ảnh</button>
+                            <button class="btn btn-sm btn-outline-danger" data-action="del" data-id="${it.id}">Xóa</button>
+                        </div>
+                    </div>
+                </div>`;
+            listEl.appendChild(col);
+        });
+        // actions
+        listEl.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const action = btn.getAttribute('data-action');
+                const id = btn.getAttribute('data-id');
+                if (action === 'del') {
+                    if (!confirm('Xóa phòng này?')) return;
+                    const res = await WhaleBooking.api.call(`/rooms/${id}`, { method: 'DELETE' });
+                    if (res && res.success) { WhaleBooking.ui.showAlert('Đã xóa', 'success'); load(); }
+                    else { WhaleBooking.ui.showAlert((res && res.message) || 'Xóa thất bại', 'danger'); }
+                }
+                if (action === 'img') {
+                    const input = document.createElement('input');
+                    input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
+                    input.onchange = async () => {
+                        if (!input.files || input.files.length === 0) return;
+                        for (let i=0;i<input.files.length;i++){
+                            const fd = new FormData();
+                            fd.append('file', input.files[i]);
+                            const res = await WhaleBooking.api.upload(`/rooms/${id}/image`, fd, { method: 'PUT' });
+                            if (!res || res.success === false) { WhaleBooking.ui.showAlert((res && res.message) || `Tải ảnh ${i+1} thất bại`, 'danger'); return; }
+                        }
+                        WhaleBooking.ui.showAlert('Đã tải ảnh', 'success');
+                        load();
+                    };
+                    input.click();
+                }
+            });
+        });
+    }
+
+    async function load(page=1){
+        // update create link with selected acc
+        const acc = selAcc.value || '';
+        if (btnCreate) btnCreate.href = `/Owner/CreateRoom?accommodationId=${encodeURIComponent(acc)}`;
+
+        const url = buildListUrl(page);
+        const res = await WhaleBooking.api.call(url, { method: 'GET' });
+        render((res && res.data) || res || []);
+    }
+
+    // Load accommodations for filter
+    async function loadAcc(){
+        const res = await WhaleBooking.api.call('/cosoluutru?page=1&pageSize=100', { method: 'GET' });
+        const list = (res && res.data) || res || [];
+        list.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.id || a.Id; opt.textContent = a.tenCoSo || a.TenCoSo || `Cơ sở ${a.id || a.Id}`;
+            selAcc.appendChild(opt);
+        });
+        if (initialAccId) selAcc.value = initialAccId;
+    }
+
+    btnSearch.addEventListener('click', () => load(1));
+
+    Promise.all([loadAcc()]).then(() => load());
+})();
+</script>
+}

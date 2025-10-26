@@ -1,0 +1,108 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Web_WhaleBooking</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/Web_WhaleBooking.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+            <div class="container-fluid">
+                <a class="navbar-brand" asp-area="" asp-controller="Auth" asp-action="Login">Web_WhaleBooking</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                        aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                    <ul class="navbar-nav flex-grow-1">
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Map" asp-action="Index">Bản đồ</a>
+                        </li>
+                        <li class="nav-item">
+                            <a id="navMyProperties" class="nav-link text-dark d-none" asp-area="" asp-controller="Owner" asp-action="Index">Cơ sở của tôi</a>
+                        </li>
+                        <li class="nav-item">
+                            <a id="navMyRooms" class="nav-link text-dark d-none" asp-area="" asp-controller="Owner" asp-action="Rooms">Phòng của tôi</a>
+                        </li>
+                    </ul>
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+                            <a id="navLogin" class="nav-link text-dark" asp-area="" asp-controller="Auth" asp-action="Login">
+                                <i class="fas fa-sign-in-alt"></i> Đăng nhập
+                            </a>
+                        </li>
+                        <li class="nav-item d-none" id="navWelcome">
+                            <span class="nav-link text-muted" id="navUserEmail"></span>
+                        </li>
+                        <li class="nav-item d-none" id="navLogoutItem">
+                            <a href="#" id="navLogout" class="nav-link text-dark"><i class="fas fa-sign-out-alt"></i> Đăng xuất</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="container">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2025 - Web_WhaleBooking - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+        </div>
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/whalebooking.js" asp-append-version="true"></script>
+    <script>
+        // Navbar behavior: only show Owner links for ChuCoSo; manage Login/Logout visibility
+        (function(){
+            if (typeof WhaleBooking === 'undefined') return;
+
+            const isLoggedIn = WhaleBooking.auth && WhaleBooking.auth.isLoggedIn && WhaleBooking.auth.isLoggedIn();
+            const isOwner = WhaleBooking.auth && WhaleBooking.auth.isOwner && WhaleBooking.auth.isOwner();
+            const user = WhaleBooking.storage && WhaleBooking.storage.getUserInfo ? WhaleBooking.storage.getUserInfo() : {};
+
+            const elLogin = document.getElementById('navLogin');
+            const elWelcome = document.getElementById('navWelcome');
+            const elEmail = document.getElementById('navUserEmail');
+            const elLogoutItem = document.getElementById('navLogoutItem');
+            const elLogout = document.getElementById('navLogout');
+
+            const elProps = document.getElementById('navMyProperties');
+            const elRooms = document.getElementById('navMyRooms');
+
+            if (isLoggedIn) {
+                if (elLogin) elLogin.classList.add('d-none');
+                if (elWelcome) elWelcome.classList.remove('d-none');
+                if (elLogoutItem) elLogoutItem.classList.remove('d-none');
+                if (elEmail) elEmail.textContent = user.email || user.Email || '';
+            }
+
+            if (isOwner) {
+                if (elProps) elProps.classList.remove('d-none');
+                if (elRooms) elRooms.classList.remove('d-none');
+            } else {
+                if (elProps) elProps.classList.add('d-none');
+                if (elRooms) elRooms.classList.add('d-none');
+            }
+
+            if (elLogout) {
+                elLogout.addEventListener('click', function(e){
+                    e.preventDefault();
+                    try { if (window.firebase && firebase.auth) firebase.auth().signOut(); } catch {}
+                    WhaleBooking.auth.logout();
+                });
+            }
+        })();
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

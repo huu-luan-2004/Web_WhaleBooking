@@ -1,0 +1,41 @@
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="row mt-4">
+    <div class="col-md-8">
+        <div id="alertMessage" class="alert d-none" role="alert"></div>
+        <div class="card mb-3">
+            <div class="card-body">
+                <h4>Thông tin người dùng</h4>
+                <pre id="userInfo" class="bg-light p-3"></pre>
+                <button id="btnRefreshMe" class="btn btn-outline-primary btn-sm">Lấy lại /api/user/me</button>
+                <button id="btnLogout" class="btn btn-outline-secondary btn-sm ms-2">Đăng xuất</button>
+            </div>
+        </div>
+
+        <!-- Admin section removed for owner-focused app -->
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    (function() {
+        async function loadMe() {
+            const res = await WhaleBooking.api.call('/user/me', { method: 'GET' });
+            if (res) {
+                document.getElementById('userInfo').textContent = JSON.stringify(res.data || res, null, 2);
+            } else {
+                WhaleBooking.ui.showAlert('Không thể lấy thông tin user. Hãy đăng nhập lại.', 'warning');
+            }
+        }
+
+        document.getElementById('btnRefreshMe').addEventListener('click', loadMe);
+        document.getElementById('btnLogout').addEventListener('click', () => WhaleBooking.auth.logout());
+        // admin grant removed
+
+        // Auto load
+        loadMe();
+    })();
+</script>
+}

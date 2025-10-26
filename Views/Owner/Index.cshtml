@@ -1,0 +1,91 @@
+@{
+    ViewData["Title"] = "Cơ sở của tôi";
+}
+
+<div class="d-flex justify-content-between align-items-center mt-4 mb-3">
+    <h3>Cơ sở của tôi</h3>
+    <div>
+        <a class="btn btn-primary" href="/Owner/Create">+ Tạo cơ sở</a>
+    </div>
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-auto">
+        <input id="txtSearch" class="form-control" placeholder="Tìm theo tên..." />
+    </div>
+    <div class="col-auto">
+        <button id="btnSearch" class="btn btn-outline-secondary">Tìm</button>
+    </div>
+</div>
+
+<div id="alertMessage" class="alert d-none" role="alert"></div>
+<div id="list" class="row g-3"></div>
+
+@section Scripts {
+<script>
+(function(){
+    // Guard: only ChuCoSo can access (Admin/KhachHang: cấm)
+    if (!WhaleBooking.auth.isOwner()) {
+        WhaleBooking.ui.showAlert('Bạn không có quyền đăng nhập', 'danger');
+        window.location.href = '/Auth/Login';
+        return;
+    }
+
+    const listEl = document.getElementById('list');
+
+    function render(items){
+        listEl.innerHTML = '';
+        if (!items || items.length === 0) {
+            listEl.innerHTML = '<div class="text-muted">Chưa có cơ sở nào</div>';
+            return;
+        }
+        items.forEach(it => {
+            const col = document.createElement('div');
+            col.className = 'col-md-4';
+            const status = it.trangThai || it.status || (it.isApproved ? 'Đã duyệt' : 'Chờ duyệt');
+            const img = WhaleBooking.api.fullImageUrl(it.imageUrl || it.avatarUrl);
+            col.innerHTML = `
+                <div class="card h-100">
+                    <img src="${img}" class="card-img-top" style="object-fit:cover;height:180px;">
+                    <div class="card-body">
+                        <h5 class="card-title">${it.tenCoSo || it.name || 'Cơ sở'}</h5>
+                        <p class="card-text small text-muted mb-1">Trạng thái: ${status}</p>
+                        <div class="d-flex gap-2">
+                            <a class="btn btn-sm btn-outline-primary" href="/Owner/Edit/${it.id}">Sửa</a>
+                            <a class="btn btn-sm btn-outline-secondary" href="/Owner/Rooms?accommodationId=${it.id}">Phòng</a>
+                            <button class="btn btn-sm btn-outline-danger" data-id="${it.id}">Xóa</button>
+                        </div>
+                    </div>
+                </div>`;
+            listEl.appendChild(col);
+        });
+
+        // Bind delete
+        listEl.querySelectorAll('button.btn-outline-danger').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('Xóa cơ sở này?')) return;
+                const id = btn.getAttribute('data-id');
+                const res = await WhaleBooking.api.call(`/cosoluutru/${id}`, { method: 'DELETE' });
+                if (res && res.success) {
+                    WhaleBooking.ui.showAlert('Đã xóa', 'success');
+                    load();
+                } else {
+                    WhaleBooking.ui.showAlert((res && res.message) || 'Xóa thất bại', 'danger');
+                }
+            });
+        });
+    }
+
+    async function load(page=1) {
+        const q = document.getElementById('txtSearch').value || '';
+        const url = `/cosoluutru?page=${page}&pageSize=20${q ? `&q=${encodeURIComponent(q)}` : ''}`;
+        const res = await WhaleBooking.api.call(url, { method: 'GET' });
+        render((res && res.data) || res || []);
+    }
+
+    document.getElementById('btnSearch').addEventListener('click', () => load(1));
+
+    load();
+})();
+</script>
+}

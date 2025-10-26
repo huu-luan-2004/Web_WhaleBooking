@@ -1,0 +1,90 @@
+@{
+    ViewData["Title"] = "Thêm phòng";
+    var accId = Context.Request.Query["accommodationId"].ToString();
+    if (string.IsNullOrWhiteSpace(accId)) accId = Context.Request.Query["coSoId"].ToString();
+}
+
+<h3 class="mt-4">Thêm phòng @(!string.IsNullOrWhiteSpace(accId) ? $"cho cơ sở #{accId}" : "")</h3>
+<div id="alertMessage" class="alert d-none" role="alert"></div>
+
+<form id="frm" class="mt-3">
+    <input type="hidden" id="hidAccId" value="@accId" />
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Tên phòng *</label>
+            <input name="tenPhong" class="form-control" required />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Giá</label>
+            <input name="gia" type="number" min="0" step="1000" class="form-control" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Số người tối đa</label>
+            <input name="soNguoiToiDa" type="number" min="1" class="form-control" />
+        </div>
+        <div class="col-md-12">
+            <label class="form-label">Mô tả</label>
+            <textarea name="moTa" rows="3" class="form-control"></textarea>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Ảnh</label>
+            <input type="file" name="file" accept="image/*" class="form-control" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Cơ sở *</label>
+            <select id="selAcc" class="form-select"></select>
+        </div>
+    </div>
+
+    <div class="mt-3 d-flex gap-2">
+        <button id="btnSave" type="submit" class="btn btn-primary">Tạo</button>
+        <a class="btn btn-secondary" id="lnkBack" href="/Owner/Rooms">Hủy</a>
+    </div>
+</form>
+
+@section Scripts {
+<script>
+(function(){
+    if (!WhaleBooking.auth.isOwner()) {
+        WhaleBooking.ui.showAlert('Bạn không có quyền đăng nhập', 'danger');
+        window.location.href = '/Auth/Login';
+        return;
+    }
+
+    const initialAccId = document.getElementById('hidAccId').value;
+    const selAcc = document.getElementById('selAcc');
+    const backLink = document.getElementById('lnkBack');
+    const form = document.getElementById('frm');
+
+    async function loadAcc(){
+        const res = await WhaleBooking.api.call('/cosoluutru?page=1&pageSize=100', { method: 'GET' });
+        const list = (res && res.data) || res || [];
+        list.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.id || a.Id; opt.textContent = a.tenCoSo || a.TenCoSo || `Cơ sở ${a.id || a.Id}`;
+            selAcc.appendChild(opt);
+        });
+        if (initialAccId) selAcc.value = initialAccId;
+        if (backLink) backLink.href = `/Owner/Rooms?accommodationId=${encodeURIComponent(selAcc.value || '')}`;
+    }
+
+    loadAcc();
+
+    form.addEventListener('submit', async function(e){
+        e.preventDefault();
+        const fd = new FormData(form);
+        if (!fd.get('idCoSoLuuTru')) fd.append('idCoSoLuuTru', selAcc.value);
+        // Ensure price is sent in a field the API accepts
+        const gia = fd.get('gia');
+        if (gia && !fd.get('giaPhong')) fd.append('giaPhong', gia);
+        const res = await WhaleBooking.api.upload('/rooms', fd, { method: 'POST' });
+        if (res && res.success) {
+            WhaleBooking.ui.showAlert('Tạo phòng thành công', 'success');
+            setTimeout(() => window.location.href = `/Owner/Rooms?accommodationId=${encodeURIComponent(selAcc.value)}` , 700);
+        } else {
+            WhaleBooking.ui.showAlert((res && res.message) || 'Lỗi tạo phòng', 'danger');
+        }
+    });
+})();
+</script>
+}
