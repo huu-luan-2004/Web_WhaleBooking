@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\WhaleBooking\\Web_WhaleBooking\\Web_WhaleBooking.csproj": {}
+    "E:\\Do_an_chuyen_nganh\\WhaleBooking\\Web_WhaleBooking\\Web_WhaleBooking.csproj": {}
   },
   "projects": {
-    "D:\\WhaleBooking\\Web_WhaleBooking\\Web_WhaleBooking.csproj": {
+    "E:\\Do_an_chuyen_nganh\\WhaleBooking\\Web_WhaleBooking\\Web_WhaleBooking.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\WhaleBooking\\Web_WhaleBooking\\Web_WhaleBooking.csproj",
+        "projectUniqueName": "E:\\Do_an_chuyen_nganh\\WhaleBooking\\Web_WhaleBooking\\Web_WhaleBooking.csproj",
         "projectName": "Web_WhaleBooking",
-        "projectPath": "D:\\WhaleBooking\\Web_WhaleBooking\\Web_WhaleBooking.csproj",
+        "projectPath": "E:\\Do_an_chuyen_nganh\\WhaleBooking\\Web_WhaleBooking\\Web_WhaleBooking.csproj",
         "packagesPath": "C:\\Users\\huulu\\.nuget\\packages\\",
-        "outputPath": "D:\\WhaleBooking\\Web_WhaleBooking\\obj\\",
+        "outputPath": "E:\\Do_an_chuyen_nganh\\WhaleBooking\\Web_WhaleBooking\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files\\DevExpress 24.1\\Components\\Offline Packages",

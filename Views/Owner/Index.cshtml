@@ -33,6 +33,35 @@
 
     const listEl = document.getElementById('list');
 
+    // Chuẩn hoá trạng thái duyệt cơ sở từ nhiều schema khác nhau
+    function computeApprovalStatus(item){
+        // Ưu tiên các field trạng thái duyệt chuyên biệt
+        let v = item?.trangThaiDuyet ?? item?.tinhTrangDuyet ?? item?.duyet ?? item?.approvalStatus ?? item?.approvalState ?? item?.approvedStatus ?? item?.ApprovalStatus ?? item?.ApprovedStatus;
+        let state = null; // 'approved' | 'pending' | 'rejected'
+        if (typeof v === 'number') {
+            // 0: pending, 1: approved, 2: rejected (giả định phổ biến)
+            state = v === 1 ? 'approved' : (v === 2 ? 'rejected' : 'pending');
+        } else if (typeof v === 'string') {
+            const s = v.toLowerCase();
+            if (['approved','đã duyệt','daduyet','approve','duyet','1','true'].includes(s)) state = 'approved';
+            else if (['rejected','từ chối','bi tu choi','bị từ chối','reject','2'].includes(s)) state = 'rejected';
+            else if (['pending','chờ duyệt','choduyet','0','false','waiting','review'].includes(s)) state = 'pending';
+        }
+        // Fallback: booleans
+        if (!state) {
+            const approvedBool = item?.isApproved ?? item?.daDuyet ?? item?.Approved ?? item?.approved;
+            const rejectedBool = item?.isRejected ?? item?.biTuChoi ?? item?.Rejected ?? item?.rejected;
+            if (rejectedBool === true) state = 'rejected';
+            else if (approvedBool === true) state = 'approved';
+            else if (approvedBool === false) state = 'pending';
+        }
+        // Default
+        if (!state) state = 'pending';
+        const text = state === 'approved' ? 'Đã duyệt' : state === 'rejected' ? 'Bị từ chối' : 'Chờ duyệt';
+        const className = state === 'approved' ? 'bg-success' : state === 'rejected' ? 'bg-danger' : 'bg-warning text-dark';
+        return { state, text, className };
+    }
+
     function render(items){
         listEl.innerHTML = '';
         if (!items || items.length === 0) {
@@ -42,17 +71,20 @@
         items.forEach(it => {
             const col = document.createElement('div');
             col.className = 'col-md-4';
-            const status = it.trangThai || it.status || (it.isApproved ? 'Đã duyệt' : 'Chờ duyệt');
+            const appr = computeApprovalStatus(it);
             const img = WhaleBooking.api.fullImageUrl(it.imageUrl || it.avatarUrl);
             col.innerHTML = `
                 <div class="card h-100">
-                    <img src="${img}" class="card-img-top" style="object-fit:cover;height:180px;">
+                    <img src="${img}" class="card-img-top" style="object-fit:cover;height:180px;" onclick="location.href='/Owner/Details/${it.id}'" role="button">
                     <div class="card-body">
-                        <h5 class="card-title">${it.tenCoSo || it.name || 'Cơ sở'}</h5>
-                        <p class="card-text small text-muted mb-1">Trạng thái: ${status}</p>
+                        <h5 class="card-title">
+                            <a href="/Owner/Details/${it.id}" class="text-decoration-none">${it.tenCoSo || it.name || 'Cơ sở'}</a>
+                        </h5>
+                        <p class="card-text small mb-1">Trạng thái duyệt: <span class="badge ${appr.className}">${appr.text}</span></p>
                         <div class="d-flex gap-2">
+                            <a class="btn btn-sm btn-outline-info" href="/Owner/Details/${it.id}">Chi tiết</a>
                             <a class="btn btn-sm btn-outline-primary" href="/Owner/Edit/${it.id}">Sửa</a>
-                            <a class="btn btn-sm btn-outline-secondary" href="/Owner/Rooms?accommodationId=${it.id}">Phòng</a>
+                            <a class="btn btn-sm btn-outline-secondary" href="/Owner/Rooms?coSoId=${it.id}">Phòng</a>
                             <button class="btn btn-sm btn-outline-danger" data-id="${it.id}">Xóa</button>
                         </div>
                     </div>

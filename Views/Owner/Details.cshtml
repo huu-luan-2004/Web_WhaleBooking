@@ -1,0 +1,341 @@
+@{
+    ViewData["Title"] = "Chi tiết cơ sở";
+}
+
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/Owner">Cơ sở của tôi</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Chi tiết cơ sở</li>
+        </ol>
+    </nav>
+
+    <div id="alertMessage" class="alert d-none" role="alert"></div>
+
+    <!-- Chi tiết cơ sở -->
+    <div id="accommodationDetails" class="card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <h3 class="card-title mb-3" id="accommodationName">Đang tải...</h3>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div id="accommodationInfo">
+                                <!-- Thông tin cơ sở sẽ được load ở đây -->
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <img id="accommodationImage" src="" class="img-fluid rounded" style="max-height: 300px; width: 100%; object-fit: cover;" />
+                        </div>
+                    </div>
+                </div>
+                <div class="ms-3">
+                    <a id="editLink" class="btn btn-primary" href="">Chỉnh sửa</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Danh sách phòng -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Danh sách phòng</h5>
+            <a id="createRoomLink" class="btn btn-success btn-sm" href="">+ Thêm phòng</a>
+        </div>
+        <div class="card-body">
+            <div class="row g-2 mb-3">
+                <div class="col-auto">
+                    <input id="txtSearchRoom" class="form-control" placeholder="Tìm phòng..." />
+                </div>
+                <div class="col-auto">
+                    <button id="btnSearchRoom" class="btn btn-outline-secondary">Tìm</button>
+                </div>
+            </div>
+            
+            <div id="roomsList" class="row g-3">
+                <!-- Danh sách phòng sẽ được load ở đây -->
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function(){
+    // Guard: only ChuCoSo can access
+    if (!WhaleBooking.auth.isOwner()) {
+        WhaleBooking.ui.showAlert('Bạn không có quyền truy cập', 'danger');
+        window.location.href = '/Auth/Login';
+        return;
+    }
+
+    const accommodationId = @ViewData["Id"];
+    const roomsListEl = document.getElementById('roomsList');
+
+    // Chuẩn hoá trạng thái duyệt cơ sở từ nhiều schema khác nhau
+    function computeApprovalStatus(item){
+        let v = item?.trangThaiDuyet ?? item?.tinhTrangDuyet ?? item?.duyet ?? item?.approvalStatus ?? item?.approvalState ?? item?.approvedStatus ?? item?.ApprovalStatus ?? item?.ApprovedStatus;
+        let state = null; // 'approved' | 'pending' | 'rejected'
+        if (typeof v === 'number') {
+            state = v === 1 ? 'approved' : (v === 2 ? 'rejected' : 'pending');
+        } else if (typeof v === 'string') {
+            const s = v.toLowerCase();
+            if (['approved','đã duyệt','daduyet','approve','duyet','1','true'].includes(s)) state = 'approved';
+            else if (['rejected','từ chối','bi tu choi','bị từ chối','reject','2'].includes(s)) state = 'rejected';
+            else if (['pending','chờ duyệt','choduyet','0','false','waiting','review'].includes(s)) state = 'pending';
+        }
+        if (!state) {
+            const approvedBool = item?.isApproved ?? item?.daDuyet ?? item?.Approved ?? item?.approved;
+            const rejectedBool = item?.isRejected ?? item?.biTuChoi ?? item?.Rejected ?? item?.rejected;
+            if (rejectedBool === true) state = 'rejected';
+            else if (approvedBool === true) state = 'approved';
+            else if (approvedBool === false) state = 'pending';
+        }
+        if (!state) state = 'pending';
+        const text = state === 'approved' ? 'Đã duyệt' : state === 'rejected' ? 'Bị từ chối' : 'Chờ duyệt';
+        const className = state === 'approved' ? 'text-success' : state === 'rejected' ? 'text-danger' : 'text-warning';
+        const badgeClass = state === 'approved' ? 'bg-success' : state === 'rejected' ? 'bg-danger' : 'bg-warning text-dark';
+        return { state, text, className, badgeClass };
+    }
+
+    // Load thông tin cơ sở
+    async function loadAccommodationDetails() {
+        try {
+            const res = await WhaleBooking.api.call(`/cosoluutru/${accommodationId}`, { method: 'GET' });
+            if (res && (res.data || res)) {
+                const accommodation = res.data || res;
+                
+                document.getElementById('accommodationName').textContent = accommodation.tenCoSo || accommodation.name || 'Cơ sở';
+                document.title = accommodation.tenCoSo || accommodation.name || 'Chi tiết cơ sở';
+                
+                const img = WhaleBooking.api.fullImageUrl(accommodation.imageUrl || accommodation.avatarUrl);
+                document.getElementById('accommodationImage').src = img;
+                
+                // Cập nhật links
+                document.getElementById('editLink').href = `/Owner/Edit/${accommodationId}`;
+                document.getElementById('createRoomLink').href = `/Owner/CreateRoom?coSoId=${accommodationId}`;
+                
+                // Hiển thị thông tin chi tiết
+                const approval = computeApprovalStatus(accommodation);
+                
+                document.getElementById('accommodationInfo').innerHTML = `
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <p><strong>Trạng thái duyệt:</strong> <span class="badge ${approval.badgeClass}">${approval.text}</span></p>
+                            <p><strong>Địa chỉ:</strong> ${accommodation.diaChi || accommodation.address || 'Chưa cập nhật'}</p>
+                            <p><strong>Số điện thoại:</strong> ${accommodation.soDienThoai || accommodation.phone || 'Chưa cập nhật'}</p>
+                        </div>
+                        <div class="col-sm-6">
+                            <p><strong>Email:</strong> ${accommodation.email || 'Chưa cập nhật'}</p>
+                            <p><strong>Website:</strong> ${accommodation.website || 'Chưa cập nhật'}</p>
+                            <p><strong>Mô tả:</strong> ${accommodation.moTa || accommodation.description || 'Chưa có mô tả'}</p>
+                        </div>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading accommodation details:', error);
+            WhaleBooking.ui.showAlert('Không thể tải thông tin cơ sở', 'danger');
+        }
+    }
+
+    // Render danh sách phòng
+    function renderRooms(rooms) {
+        roomsListEl.innerHTML = '';
+        if (!rooms || rooms.length === 0) {
+            roomsListEl.innerHTML = '<div class="col-12"><div class="text-muted text-center p-4">Chưa có phòng nào</div></div>';
+            return;
+        }
+
+        rooms.forEach(room => {
+            const col = document.createElement('div');
+            col.className = 'col-md-4';
+            
+            const img = WhaleBooking.api.fullImageUrl(room.imageUrl || room.avatarUrl || room.Images?.[0] || room.images?.[0]);
+            
+            // Xử lý trạng thái phòng
+            let status = 'Hoạt động';
+            let statusClass = 'text-success';
+            
+            if (room.trangThai !== undefined) {
+                // Nếu có trường trangThai
+                switch(room.trangThai) {
+                    case 0:
+                    case 'inactive':
+                    case 'Inactive':
+                    case 'Không hoạt động':
+                        status = 'Không hoạt động';
+                        statusClass = 'text-danger';
+                        break;
+                    case 1:
+                    case 'active':
+                    case 'Active':
+                    case 'Hoạt động':
+                        status = 'Hoạt động';
+                        statusClass = 'text-success';
+                        break;
+                    case 2:
+                    case 'maintenance':
+                    case 'Maintenance':
+                    case 'Bảo trì':
+                        status = 'Đang bảo trì';
+                        statusClass = 'text-warning';
+                        break;
+                    case 3:
+                    case 'booked':
+                    case 'Booked':
+                    case 'Đã đặt':
+                        status = 'Đã được đặt';
+                        statusClass = 'text-info';
+                        break;
+                    default:
+                        status = room.trangThai;
+                        statusClass = 'text-muted';
+                }
+            } else if (room.status !== undefined) {
+                // Nếu có trường status
+                switch(room.status) {
+                    case 0:
+                    case 'inactive':
+                    case 'Inactive':
+                    case 'Không hoạt động':
+                        status = 'Không hoạt động';
+                        statusClass = 'text-danger';
+                        break;
+                    case 1:
+                    case 'active':
+                    case 'Active':
+                    case 'Hoạt động':
+                        status = 'Hoạt động';
+                        statusClass = 'text-success';
+                        break;
+                    case 2:
+                    case 'maintenance':
+                    case 'Maintenance':
+                    case 'Bảo trì':
+                        status = 'Đang bảo trì';
+                        statusClass = 'text-warning';
+                        break;
+                    case 3:
+                    case 'booked':
+                    case 'Booked':
+                    case 'Đã đặt':
+                        status = 'Đã được đặt';
+                        statusClass = 'text-info';
+                        break;
+                    default:
+                        status = room.status;
+                        statusClass = 'text-muted';
+                }
+            } else if (room.isActive !== undefined) {
+                // Nếu có trường isActive
+                status = room.isActive ? 'Hoạt động' : 'Không hoạt động';
+                statusClass = room.isActive ? 'text-success' : 'text-danger';
+            } else if (room.isAvailable !== undefined) {
+                // Nếu có trường isAvailable
+                status = room.isAvailable ? 'Có sẵn' : 'Không có sẵn';
+                statusClass = room.isAvailable ? 'text-success' : 'text-warning';
+            }
+            
+            const price = room.gia || room.price || room.Gia || 0;
+            const discountPrice = room.giaKhuyenMai || room.discountPrice || room.GiaKhuyenMai;
+            const roomType = room.loaiPhong || room.type || room.LoaiPhong || 'Standard';
+            const maxGuests = room.soNguoiToiDa || room.maxGuests || room.SoNguoiToiDa || '';
+            
+            col.innerHTML = `
+                <div class="card h-100">
+                    <img src="${img}" class="card-img-top" style="object-fit:cover;height:180px;" onerror="this.src='https://via.placeholder.com/600x400?text=No+Image'">
+                    <div class="card-body">
+                        <h6 class="card-title">${room.tenPhong || room.name || room.TenPhong || 'Phòng'}</h6>
+                        <p class="card-text small">
+                            <span class="text-muted">Loại:</span> ${roomType}<br>
+                            <span class="text-muted">Giá:</span> <strong class="${discountPrice ? 'text-decoration-line-through text-muted' : ''}">${price.toLocaleString()} VNĐ</strong>
+                            ${discountPrice ? `<br><span class="text-muted">Giá KM:</span> <strong class="text-danger">${discountPrice.toLocaleString()} VNĐ</strong>` : ''}<br>
+                            ${maxGuests ? `<span class="text-muted">Số người:</span> ${maxGuests}<br>` : ''}
+                            <span class="text-muted">Trạng thái:</span> <span class="${statusClass}"><strong>${status}</strong></span>
+                        </p>
+                        <div class="d-flex gap-1 flex-wrap">
+                            <a class="btn btn-sm btn-outline-primary" href="/Owner/EditRoom?coSoId=${accommodationId}&id=${room.id}">Sửa</a>
+                            <button class="btn btn-sm btn-outline-info toggle-status" data-id="${room.id}" data-current="${room.trangThai || room.status || (room.isActive ? 1 : 0)}">
+                                ${(room.trangThai === 1 || room.status === 1 || room.isActive) ? 'Tắt' : 'Bật'}
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" data-id="${room.id}">Xóa</button>
+                        </div>
+                    </div>
+                </div>`;
+            roomsListEl.appendChild(col);
+        });
+
+        // Bind delete room events
+        roomsListEl.querySelectorAll('button.btn-outline-danger').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('Xóa phòng này?')) return;
+                const roomId = btn.getAttribute('data-id');
+                try {
+                    const res = await WhaleBooking.api.call(`/phong/${roomId}`, { method: 'DELETE' });
+                    if (res && res.success) {
+                        WhaleBooking.ui.showAlert('Đã xóa phòng', 'success');
+                        loadRooms();
+                    } else {
+                        WhaleBooking.ui.showAlert((res && res.message) || 'Xóa phòng thất bại', 'danger');
+                    }
+                } catch (error) {
+                    console.error('Error deleting room:', error);
+                    WhaleBooking.ui.showAlert('Có lỗi xảy ra khi xóa phòng', 'danger');
+                }
+            });
+        });
+
+        // Bind toggle status events
+        roomsListEl.querySelectorAll('button.toggle-status').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const roomId = btn.getAttribute('data-id');
+                const currentStatus = parseInt(btn.getAttribute('data-current')) || 0;
+                const newStatus = currentStatus === 1 ? 0 : 1;
+                
+                try {
+                    const res = await WhaleBooking.api.call(`/phong/${roomId}/status`, { 
+                        method: 'PUT',
+                        body: JSON.stringify({ trangThai: newStatus }),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    if (res && res.success) {
+                        WhaleBooking.ui.showAlert(`Đã ${newStatus === 1 ? 'kích hoạt' : 'vô hiệu hóa'} phòng`, 'success');
+                        loadRooms();
+                    } else {
+                        WhaleBooking.ui.showAlert((res && res.message) || 'Cập nhật trạng thái thất bại', 'danger');
+                    }
+                } catch (error) {
+                    console.error('Error updating room status:', error);
+                    WhaleBooking.ui.showAlert('Có lỗi xảy ra khi cập nhật trạng thái', 'danger');
+                }
+            });
+        });
+    }
+
+    // Load danh sách phòng
+    async function loadRooms() {
+        try {
+            const searchTerm = document.getElementById('txtSearchRoom').value || '';
+            const url = `/phong?coSoId=${accommodationId}${searchTerm ? `&q=${encodeURIComponent(searchTerm)}` : ''}`;
+            const res = await WhaleBooking.api.call(url, { method: 'GET' });
+            renderRooms((res && res.data) || res || []);
+        } catch (error) {
+            console.error('Error loading rooms:', error);
+            WhaleBooking.ui.showAlert('Không thể tải danh sách phòng', 'danger');
+        }
+    }
+
+    // Event listeners
+    document.getElementById('btnSearchRoom').addEventListener('click', loadRooms);
+    document.getElementById('txtSearchRoom').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') loadRooms();
+    });
+
+    // Load initial data
+    loadAccommodationDetails();
+    loadRooms();
+})();
+</script>
+}

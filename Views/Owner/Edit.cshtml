@@ -197,8 +197,18 @@
     setVal('tenNganHang', get('tenNganHang','TenNganHang'));
     setVal('soNha', get('soNha','SoNha'));
     setVal('phuong', get('phuong','Phuong'));
-    setVal('kinhDo', get('kinhDo','KinhDo'));
-    setVal('viDo', get('viDo','ViDo'));
+        // Set tọa độ từ root; nếu thiếu thì fallback sang DiaChi
+        let viDoVal = get('viDo','ViDo');
+        let kinhDoVal = get('kinhDo','KinhDo');
+        const diaChi = it.diaChi || it.DiaChi || {};
+        if ((viDoVal === '' || viDoVal === undefined || viDoVal === null) && (diaChi)) {
+            viDoVal = diaChi.viDo ?? diaChi.ViDo ?? '';
+        }
+        if ((kinhDoVal === '' || kinhDoVal === undefined || kinhDoVal === null) && (diaChi)) {
+            kinhDoVal = diaChi.kinhDo ?? diaChi.KinhDo ?? '';
+        }
+        setVal('kinhDo', kinhDoVal);
+        setVal('viDo', viDoVal);
         // Image preview
         const imgUrl = it.imageUrl || it.ImageUrl || '';
         const imgPreview = document.getElementById('imgPreviewEdit');
@@ -207,7 +217,8 @@
             imgPreview.src = abs;
             imgPreview.style.display = imgUrl ? 'block' : 'none';
         }
-        const diaChi = it.diaChi || it.DiaChi || {};
+    // lưu id địa chỉ (nếu có)
+    // (diaChi đã được gán ở trên)
         idDiaChiInput().value = (diaChi.id || diaChi.Id || '').toString();
             // Prefill new schema fields from either new or old properties
             getEl('chiTiet').value = (diaChi.chiTiet ?? diaChi.ChiTiet ?? diaChi.soNha ?? diaChi.SoNha ?? '');
@@ -219,8 +230,9 @@
             }
 
         // Initialize map with existing coords or default Hanoi
-        const lat = toNum(get('viDo','ViDo')) ?? 21.0278;
-        const lon = toNum(get('kinhDo','KinhDo')) ?? 105.8342;
+    // Lấy lat/lon ưu tiên root, sau đó fallback DiaChi
+    const lat = toNum(get('viDo','ViDo')) ?? toNum(diaChi.viDo ?? diaChi.ViDo) ?? 21.0278;
+    const lon = toNum(get('kinhDo','KinhDo')) ?? toNum(diaChi.kinhDo ?? diaChi.KinhDo) ?? 105.8342;
         ensureMap([lat, lon]);
         // Set initial marker without reverse geocode to keep stored address values
         if (marker) {
@@ -268,20 +280,32 @@
 
     form.addEventListener('submit', async function(e){
         e.preventDefault();
-        // Normalize decimals
+        // Luôn gửi multipart/form-data theo yêu cầu backend
+        // Chuẩn hóa số thập phân trước khi set vào FormData
         latInput().value = (toNum(latInput().value) ?? '').toString();
         lonInput().value = (toNum(lonInput().value) ?? '').toString();
-    const fd = new FormData(form);
-        // If no file selected, remove the key to avoid sending empty file part
+
+        const fd = new FormData(form);
+
+        // Nếu không chọn ảnh, loại bỏ key "file" để tránh gửi part rỗng
         const fi = form.querySelector('[name="file"]');
         if (fi && (!fi.files || fi.files.length === 0)) {
             fd.delete('file');
         }
-        // Ensure idDiaChi is included if present
-        const iddc = idDiaChiInput().value;
-        if (iddc) fd.set('idDiaChi', iddc);
-        // Include new schema fields explicitly to be safe
+
+        // Đảm bảo các field địa chỉ và meta tồn tại trong FormData
         ['chiTiet','pho','phuong','nuoc'].forEach(n=>{ const el=getEl(n); if(el) fd.set(n, el.value || ''); });
+        const iddc = idDiaChiInput().value; if (iddc) fd.set('idDiaChi', iddc);
+
+        // Bổ sung cả dạng PascalCase để tăng tương thích model binder backend
+        const vi = latInput().value; const ki = lonInput().value;
+        if (vi !== undefined) { fd.set('viDo', vi); fd.set('ViDo', vi); }
+        if (ki !== undefined) { fd.set('kinhDo', ki); fd.set('KinhDo', ki); }
+
+        // Cũng set lại các trường text chính (phòng trường hợp FormData(form) bị thiếu do name khác)
+        const mainFields = ['tenCoSo','thanhPho','moTa','soTaiKhoan','tenTaiKhoan','tenNganHang'];
+        mainFields.forEach(n=>{ const el=getEl(n); if(el) fd.set(n, el.value || ''); });
+
         const res = await WhaleBooking.api.upload(`/cosoluutru/${id}`, fd, { method: 'PUT' });
         if (res && res.success) {
             WhaleBooking.ui.showAlert('Cập nhật thành công', 'success');

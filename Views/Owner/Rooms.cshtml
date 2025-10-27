@@ -77,16 +77,100 @@
             else cover = it.imageUrl || it.ImageUrl || 'https://via.placeholder.com/600x400?text=No+Image';
             const gia = (it.gia ?? it.Gia) ?? '';
             const giaKM = (it.giaKhuyenMai ?? it.GiaKhuyenMai);
+            
+            // Xử lý trạng thái phòng
+            let status = 'Hoạt động';
+            let statusClass = 'text-success';
+            
+            if (it.trangThai !== undefined) {
+                switch(it.trangThai) {
+                    case 0:
+                    case 'inactive':
+                    case 'Inactive':
+                    case 'Không hoạt động':
+                        status = 'Không hoạt động';
+                        statusClass = 'text-danger';
+                        break;
+                    case 1:
+                    case 'active':
+                    case 'Active':
+                    case 'Hoạt động':
+                        status = 'Hoạt động';
+                        statusClass = 'text-success';
+                        break;
+                    case 2:
+                    case 'maintenance':
+                    case 'Maintenance':
+                    case 'Bảo trì':
+                        status = 'Đang bảo trì';
+                        statusClass = 'text-warning';
+                        break;
+                    case 3:
+                    case 'booked':
+                    case 'Booked':
+                    case 'Đã đặt':
+                        status = 'Đã được đặt';
+                        statusClass = 'text-info';
+                        break;
+                    default:
+                        status = it.trangThai;
+                        statusClass = 'text-muted';
+                }
+            } else if (it.status !== undefined) {
+                switch(it.status) {
+                    case 0:
+                    case 'inactive':
+                    case 'Inactive':
+                        status = 'Không hoạt động';
+                        statusClass = 'text-danger';
+                        break;
+                    case 1:
+                    case 'active':
+                    case 'Active':
+                        status = 'Hoạt động';
+                        statusClass = 'text-success';
+                        break;
+                    case 2:
+                    case 'maintenance':
+                    case 'Maintenance':
+                        status = 'Đang bảo trì';
+                        statusClass = 'text-warning';
+                        break;
+                    case 3:
+                    case 'booked':
+                    case 'Booked':
+                        status = 'Đã được đặt';
+                        statusClass = 'text-info';
+                        break;
+                    default:
+                        status = it.status;
+                        statusClass = 'text-muted';
+                }
+            } else if (it.isActive !== undefined) {
+                status = it.isActive ? 'Hoạt động' : 'Không hoạt động';
+                statusClass = it.isActive ? 'text-success' : 'text-danger';
+            } else if (it.isAvailable !== undefined) {
+                status = it.isAvailable ? 'Có sẵn' : 'Không có sẵn';
+                statusClass = it.isAvailable ? 'text-success' : 'text-warning';
+            }
+            
             col.innerHTML = `
                 <div class="card h-100">
                     <img src="${cover}" class="card-img-top" style="object-fit:cover;height:180px;">
                     <div class="card-body">
                         <h5 class="card-title">${it.tenPhong || it.TenPhong || it.name || 'Phòng'}</h5>
-                        <p class="card-text small text-muted mb-1">Giá: ${gia}${giaKM ? ` (KM: ${giaKM})` : ''}</p>
-                        <p class="card-text small text-muted">Số người tối đa: ${it.soNguoiToiDa || it.SoNguoiToiDa || ''}</p>
-                        <div class="d-flex gap-2">
+                        <p class="card-text small text-muted mb-1">
+                            Giá: <strong class="${giaKM ? 'text-decoration-line-through' : ''}">${gia}</strong>
+                            ${giaKM ? ` <span class="text-danger fw-bold">(KM: ${giaKM})</span>` : ''}
+                        </p>
+                        <p class="card-text small text-muted mb-1">Số người tối đa: ${it.soNguoiToiDa || it.SoNguoiToiDa || ''}</p>
+                        <p class="card-text small mb-2">Trạng thái: <span class="${statusClass}"><strong>${status}</strong></span></p>
+                        <div class="d-flex gap-1 flex-wrap">
                             <a class="btn btn-sm btn-outline-primary" href="/Owner/EditRoom?id=${it.id}">Sửa</a>
                             <button class="btn btn-sm btn-outline-secondary" data-action="img" data-id="${it.id}">Ảnh</button>
+                            <button class="btn btn-sm btn-outline-info" data-action="toggle" data-id="${it.id}" data-current="${it.trangThai || it.status || (it.isActive ? 1 : 0)}">
+                                ${(it.trangThai === 1 || it.status === 1 || it.isActive) ? 'Tắt' : 'Bật'}
+                            </button>
                             <button class="btn btn-sm btn-outline-danger" data-action="del" data-id="${it.id}">Xóa</button>
                         </div>
                     </div>
@@ -103,6 +187,20 @@
                     const res = await WhaleBooking.api.call(`/rooms/${id}`, { method: 'DELETE' });
                     if (res && res.success) { WhaleBooking.ui.showAlert('Đã xóa', 'success'); load(); }
                     else { WhaleBooking.ui.showAlert((res && res.message) || 'Xóa thất bại', 'danger'); }
+                }
+                if (action === 'toggle') {
+                    const currentStatus = parseInt(btn.getAttribute('data-current')) || 0;
+                    const newStatus = currentStatus === 1 ? 0 : 1;
+                    const res = await WhaleBooking.api.call(`/rooms/${id}/status`, { 
+                        method: 'PUT',
+                        body: JSON.stringify({ trangThai: newStatus }),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    if (res && res.success) { 
+                        WhaleBooking.ui.showAlert(`Đã ${newStatus === 1 ? 'kích hoạt' : 'vô hiệu hóa'} phòng`, 'success'); 
+                        load(); 
+                    }
+                    else { WhaleBooking.ui.showAlert((res && res.message) || 'Cập nhật trạng thái thất bại', 'danger'); }
                 }
                 if (action === 'img') {
                     const input = document.createElement('input');

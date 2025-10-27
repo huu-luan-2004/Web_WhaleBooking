@@ -24,6 +24,13 @@ public class OwnerController : Controller
     }
 
     [HttpGet]
+    public IActionResult Details(int id)
+    {
+        ViewData["Id"] = id;
+        return View();
+    }
+
+    [HttpGet]
     public IActionResult Rooms(int coSoId)
     {
         ViewData["CoSoId"] = coSoId;

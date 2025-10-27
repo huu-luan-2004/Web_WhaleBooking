@@ -9,67 +9,71 @@ build_property.EnforceExtendedAnalyzerRules =
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = Web_WhaleBooking
 build_property.RootNamespace = Web_WhaleBooking
-build_property.ProjectDir = D:\WhaleBooking\Web_WhaleBooking\
+build_property.ProjectDir = E:\Do_an_chuyen_nganh\WhaleBooking\Web_WhaleBooking\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.RazorLangVersion = 8.0
 build_property.SupportLocalizedComponentNames = 
 build_property.GenerateRazorMetadataSourceChecksumAttributes = 
-build_property.MSBuildProjectDirectory = D:\WhaleBooking\Web_WhaleBooking
+build_property.MSBuildProjectDirectory = E:\Do_an_chuyen_nganh\WhaleBooking\Web_WhaleBooking
 build_property._RazorSourceGeneratorDebug = 
 
-[D:/WhaleBooking/Web_WhaleBooking/Views/Auth/Dashboard.cshtml]
+[E:/Do_an_chuyen_nganh/WhaleBooking/Web_WhaleBooking/Views/Auth/Dashboard.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQXV0aFxEYXNoYm9hcmQuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/WhaleBooking/Web_WhaleBooking/Views/Auth/Login.cshtml]
+[E:/Do_an_chuyen_nganh/WhaleBooking/Web_WhaleBooking/Views/Auth/Login.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQXV0aFxMb2dpbi5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/WhaleBooking/Web_WhaleBooking/Views/Map/Index.cshtml]
+[E:/Do_an_chuyen_nganh/WhaleBooking/Web_WhaleBooking/Views/Map/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTWFwXEluZGV4LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/WhaleBooking/Web_WhaleBooking/Views/Owner/Create.cshtml]
+[E:/Do_an_chuyen_nganh/WhaleBooking/Web_WhaleBooking/Views/Owner/Create.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcT3duZXJcQ3JlYXRlLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/WhaleBooking/Web_WhaleBooking/Views/Owner/CreateRoom.cshtml]
+[E:/Do_an_chuyen_nganh/WhaleBooking/Web_WhaleBooking/Views/Owner/CreateRoom.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcT3duZXJcQ3JlYXRlUm9vbS5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/WhaleBooking/Web_WhaleBooking/Views/Owner/Edit.cshtml]
+[E:/Do_an_chuyen_nganh/WhaleBooking/Web_WhaleBooking/Views/Owner/Details.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcT3duZXJcRGV0YWlscy5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[E:/Do_an_chuyen_nganh/WhaleBooking/Web_WhaleBooking/Views/Owner/Edit.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcT3duZXJcRWRpdC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/WhaleBooking/Web_WhaleBooking/Views/Owner/EditRoom.cshtml]
+[E:/Do_an_chuyen_nganh/WhaleBooking/Web_WhaleBooking/Views/Owner/EditRoom.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcT3duZXJcRWRpdFJvb20uY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/WhaleBooking/Web_WhaleBooking/Views/Owner/Index.cshtml]
+[E:/Do_an_chuyen_nganh/WhaleBooking/Web_WhaleBooking/Views/Owner/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcT3duZXJcSW5kZXguY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/WhaleBooking/Web_WhaleBooking/Views/Owner/Rooms.cshtml]
+[E:/Do_an_chuyen_nganh/WhaleBooking/Web_WhaleBooking/Views/Owner/Rooms.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcT3duZXJcUm9vbXMuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/WhaleBooking/Web_WhaleBooking/Views/Shared/Error.cshtml]
+[E:/Do_an_chuyen_nganh/WhaleBooking/Web_WhaleBooking/Views/Shared/Error.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXEVycm9yLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/WhaleBooking/Web_WhaleBooking/Views/Shared/_ValidationScriptsPartial.cshtml]
+[E:/Do_an_chuyen_nganh/WhaleBooking/Web_WhaleBooking/Views/Shared/_ValidationScriptsPartial.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9WYWxpZGF0aW9uU2NyaXB0c1BhcnRpYWwuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/WhaleBooking/Web_WhaleBooking/Views/_ViewImports.cshtml]
+[E:/Do_an_chuyen_nganh/WhaleBooking/Web_WhaleBooking/Views/_ViewImports.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdJbXBvcnRzLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/WhaleBooking/Web_WhaleBooking/Views/_ViewStart.cshtml]
+[E:/Do_an_chuyen_nganh/WhaleBooking/Web_WhaleBooking/Views/_ViewStart.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdTdGFydC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/WhaleBooking/Web_WhaleBooking/Views/Shared/_Layout.cshtml]
+[E:/Do_an_chuyen_nganh/WhaleBooking/Web_WhaleBooking/Views/Shared/_Layout.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9MYXlvdXQuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = b-gc56jbvpjh
